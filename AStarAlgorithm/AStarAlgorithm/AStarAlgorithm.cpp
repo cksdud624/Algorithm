@@ -220,32 +220,85 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         POINT move = { player.x, player.y };
+        POINT before = { move.x, move.y };
         while (!(move.x == EndPoint.x && move.y == EndPoint.y))
         {
+            double minF = -1;
+            int minFindexX = -1;
+            int minFindexY = -1;
             for (int i = -1; i <= 1; i++)
             {
                 for (int j = -1; j <= 1; j++)
                 {
                     if (i == 0 && j == 0)
                         continue;
+                    if (move.x + j < 0 || move.x + j >= XPOINTS
+                        || move.y + i < 0 || move.y + i >= YPOINTS)
+                        continue;
 
-                    square[move.x + j][move.y + i].setOpen(1);
-                    POINT temp = { move.x + j, move.y + i };
+                    if (square[move.x + j][move.y + i].getOpen() == 0)
+                    {
+                        square[move.x + j][move.y + i].setOpen(1);
+                        POINT temp = { move.x + j, move.y + i };
 
-                    double g = 0;
-                    int x, y;
-                    x = abs(temp.x - player.x);
-                    y = abs(temp.y - player.y);
+                        double g = 0;
+                        int x, y;
+                        x = abs(temp.x - player.x);
+                        y = abs(temp.y - player.y);
+                        if (x > y)
+                        {
+                            g += sqrt(y * y + y * y);
+                            x -= y;
+                            g += x;
+                        }
+                        else if (x < y)
+                        {
+                            g += sqrt(x * x + x * x);
+                            y -= x;
+                            g += y;
+                        }
+                        else
+                            g += sqrt(x * x + y * y);
+                        square[move.x + j][move.y + i].setG(g);//Gcost
 
-                    while()
-                    square[move.x + j][move.y + i].setG();
+                        double h = 0;
+                        x = abs(temp.x - EndPoint.x);
+                        y = abs(temp.y - EndPoint.y);
+                        if (x > y)
+                        {
+                            h += sqrt(y * y + y * y);
+                            x -= y;
+                            h += x;
+                        }
+                        else if (x < y)
+                        {
+                            h += sqrt(x * x + x * x);
+                            y -= x;
+                            h += y;
+                        }
+                        else
+                            h += sqrt(x * x + y * y);
+                        square[move.x + j][move.y + i].setH(h);//Hcost
 
+                        square[move.x + j][move.y + i].setF(g + h);
+                    }
 
-
-
-
+                    if (minF < 0 || minF > square[move.x + j][move.y + i].getF())
+                    {
+                        if (before.x != move.x && before.y != move.y)
+                        {
+                            minF = square[move.x + j][move.y + i].getF();
+                            minFindexX = move.x + j;
+                            minFindexY = move.y + i;
+                        }
+                    }
                 }
             }
+            before.x = move.x;
+            before.y = move.y;
+            move.x = minFindexX;
+            move.y = minFindexY;
+            cout << move.x << " " << move.y << endl;
         }
         InvalidateRect(hWnd, NULL, TRUE);
     }
