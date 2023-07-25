@@ -158,10 +158,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 square[i][j].setY(j);
             }
         }
-        player.x = square[0][0].getX();
-        player.y = square[0][0].getY();
+        player.x = square[3][2].getX();
+        player.y = square[3][2].getY();
         EndPoint.x = player.x;
         EndPoint.y = player.y;
+
+        for (int i = 2; i < 7; i++)
+        {
+            square[i][3].setBlock(1);
+        }
+        square[2][2].setBlock(1);
         break;
     case WM_COMMAND:
         {
@@ -185,18 +191,59 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: 여기에 hdc를 사용하는 그리기 코드를 추가합니다...
-            for (int i = 0; i < XPOINTS ; i++)
+            HBRUSH hNewBrush;
+            HBRUSH hOldBrush;
+            for (int i = 0; i < XPOINTS; i++)
             {
-                for (int j = 0; j < YPOINTS ; j++)
+                for (int j = 0; j < YPOINTS; j++)
                 {
-                    Rectangle(hdc, square[i][j].getX() * len  - len / 2 + 100, square[i][j].getY() * len - len / 2 + 100,
-                        square[i][j].getX() * len + len / 2 + 100, square[i][j].getY() * len + len / 2 + 100);
+                    if (square[i][j].getBlock() == 0)
+                    {
+                        if (square[i][j].getOpen() == 1)
+                        {
+                            hNewBrush = CreateSolidBrush(RGB(0, 255, 0));
+                            hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+                        }
+                        else if (square[i][j].getOpen() == 2)
+                        {
+                            hNewBrush = CreateSolidBrush(RGB(255, 0, 0));
+                            hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+                        }
+                        else
+                        {
+                            hNewBrush = CreateSolidBrush(RGB(255, 255, 255));
+                            hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+                        }
+                        Rectangle(hdc, square[i][j].getX() * len - len / 2 + 100, square[i][j].getY() * len - len / 2 + 100,
+                            square[i][j].getX() * len + len / 2 + 100, square[i][j].getY() * len + len / 2 + 100);
+
+                        SelectObject(hdc, hOldBrush);
+                        DeleteObject(hNewBrush);
+                        SetTextAlign(hdc, TA_CENTER);
+                        TCHAR temp[30];
+                        _stprintf_s(temp, L"%d", square[i][j].getG());
+                        TextOut(hdc, square[i][j].getX() * len + 80, square[i][j].getY() * len + 70, temp, _tcslen(temp));
+                        _stprintf_s(temp, L"%d", square[i][j].getH());
+                        TextOut(hdc, square[i][j].getX() * len + 120, square[i][j].getY() * len + 70, temp, _tcslen(temp));
+                        _stprintf_s(temp, L"%d", square[i][j].getF());
+                        TextOut(hdc, square[i][j].getX() * len + 100, square[i][j].getY() * len + 115, temp, _tcslen(temp));
+
+                    }
                 }
             }
-            Ellipse(hdc, player.x * len - 20 + 100, player.y * len - 20 + 100,
-                player.x * len + 20 + 100, player.y * len + 20 + 100);
-            Ellipse(hdc, EndPoint.x * len - 20 + 100, EndPoint.y * len - 20 + 100,
-                EndPoint.x * len + 20 + 100, EndPoint.y * len + 20 + 100);
+            hNewBrush = CreateSolidBrush(RGB(0, 0, 0));
+            hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+            Ellipse(hdc, EndPoint.x * len - 10 + 100, EndPoint.y * len - 10 + 100,
+                EndPoint.x * len + 10 + 100, EndPoint.y * len + 10 + 100);
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hNewBrush);
+            hNewBrush = CreateSolidBrush(RGB(0, 0, 255));
+            hOldBrush = (HBRUSH)SelectObject(hdc, hNewBrush);
+            Ellipse(hdc, player.x * len - 10 + 100, player.y * len - 10 + 100,
+                player.x * len + 10 + 100, player.y * len + 10 + 100);
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hNewBrush);
+
             EndPaint(hWnd, &ps);
         }
         break;
@@ -205,6 +252,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_LBUTTONDOWN:
     {
+        for (int i = 0; i < XPOINTS; i++)
+        {
+            for (int j = 0; j < YPOINTS; j++)
+            {
+                square[i][j].Clear();
+            }
+        }
+
+
+        vector<POINT> OpenPoints;
         int x = LOWORD(lParam);
         int y = HIWORD(lParam);
         for (int i = 0; i < XPOINTS; i++)
@@ -220,87 +277,146 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         POINT move = { player.x, player.y };
-        POINT before = { move.x, move.y };
+        int currentG = 0;
         while (!(move.x == EndPoint.x && move.y == EndPoint.y))
         {
-            double minF = -1;
-            int minFindexX = -1;
-            int minFindexY = -1;
             for (int i = -1; i <= 1; i++)
             {
                 for (int j = -1; j <= 1; j++)
                 {
-                    if (i == 0 && j == 0)
+                    if (i == 0 && j == 0)//범위 이외의 위치 제외
                         continue;
-                    if (move.x + j < 0 || move.x + j >= XPOINTS
-                        || move.y + i < 0 || move.y + i >= YPOINTS)
+                    if (move.x + j < 0 || move.x + j >= XPOINTS || move.y + i < 0
+                        || move.y + i >= YPOINTS)
+                        continue;
+                    if (square[move.x + j][move.y + i].getBlock() == 1)
                         continue;
 
-                    if (square[move.x + j][move.y + i].getOpen() == 0)
+                    if (square[move.x + j][move.y + i].getOpen() != 2)
                     {
-                        square[move.x + j][move.y + i].setOpen(1);
-                        POINT temp = { move.x + j, move.y + i };
+                        int tempG = currentG;
+                        int x = abs(move.x + j - EndPoint.x);
+                        int y = abs(move.y + i - EndPoint.y);
+                        int tempH = 0;
 
-                        double g = 0;
-                        int x, y;
-                        x = abs(temp.x - player.x);
-                        y = abs(temp.y - player.y);
+                        if (i == 0 || j == 0)
+                            tempG += 10;
+                        else
+                            tempG += 14;
+
+                        if (square[move.x + j][move.y + i].getOpen() == 0)
+                        {
+                            square[move.x + j][move.y + i].setG(tempG);
+                            square[move.x + j][move.y + i].setBeforeX(move.x);
+                            square[move.x + j][move.y + i].setBeforeY(move.y);
+                        }
+                        else if (square[move.x + j][move.y + i].getG() > tempG)
+                        {
+                            square[move.x + j][move.y + i].setG(tempG);
+                            square[move.x + j][move.y + i].setBeforeX(move.x);
+                            square[move.x + j][move.y + i].setBeforeY(move.y);
+                        }
+
+
                         if (x > y)
                         {
-                            g += sqrt(y * y + y * y);
+                            tempH += y * 14;
                             x -= y;
-                            g += x;
-                        }
-                        else if (x < y)
-                        {
-                            g += sqrt(x * x + x * x);
-                            y -= x;
-                            g += y;
+                            tempH += x * 10;
                         }
                         else
-                            g += sqrt(x * x + y * y);
-                        square[move.x + j][move.y + i].setG(g);//Gcost
-
-                        double h = 0;
-                        x = abs(temp.x - EndPoint.x);
-                        y = abs(temp.y - EndPoint.y);
-                        if (x > y)
                         {
-                            h += sqrt(y * y + y * y);
-                            x -= y;
-                            h += x;
-                        }
-                        else if (x < y)
-                        {
-                            h += sqrt(x * x + x * x);
+                            tempH += x * 14;
                             y -= x;
-                            h += y;
+                            tempH += y * 10;
                         }
-                        else
-                            h += sqrt(x * x + y * y);
-                        square[move.x + j][move.y + i].setH(h);//Hcost
-
-                        square[move.x + j][move.y + i].setF(g + h);
-                    }
-
-                    if (minF < 0 || minF > square[move.x + j][move.y + i].getF())
-                    {
-                        if (before.x != move.x && before.y != move.y)
+                        square[move.x + j][move.y + i].setH(tempH);
+                        square[move.x + j][move.y + i].setF(square[move.x + j][move.y + i].getG() + tempH);
+                        if (square[move.x + j][move.y + i].getOpen() == 0)
                         {
-                            minF = square[move.x + j][move.y + i].getF();
-                            minFindexX = move.x + j;
-                            minFindexY = move.y + i;
+                            OpenPoints.push_back({ move.x + j, move.y + i });
+                            square[move.x + j][move.y + i].setOpen(1);
                         }
                     }
                 }
             }
-            before.x = move.x;
-            before.y = move.y;
-            move.x = minFindexX;
-            move.y = minFindexY;
-            cout << move.x << " " << move.y << endl;
+
+            int minF = square[OpenPoints[0].x][OpenPoints[0].y].getF() ;
+            //F가 가장 낮은 값 추출
+            for (int i = 1; i < OpenPoints.size(); i++)
+            {
+                if (minF > square[OpenPoints[i].x][OpenPoints[i].y].getF())
+                {
+                    minF = square[OpenPoints[i].x][OpenPoints[i].y].getF();
+                }
+            }
+            vector<POINT> MinFPoints;
+            for (int i = 0; i < OpenPoints.size(); i++)
+            {
+                if (minF == square[OpenPoints[i].x][OpenPoints[i].y].getF())
+                {
+                    MinFPoints.push_back({ OpenPoints[i].x , OpenPoints[i].y });
+                }
+            }
+            //F가 가장 낮은 좌표들 중에서 가장 작은 H값 추출
+            int minH = square[MinFPoints[0].x][MinFPoints[0].y].getH();
+
+            for (int i = 1; i < MinFPoints.size(); i++)
+            {
+                if (minH > square[MinFPoints[i].x][MinFPoints[i].y].getH())
+                {
+                    minH = square[MinFPoints[i].x][MinFPoints[i].y].getH();
+                }
+            }
+
+            POINT NextPoint;
+
+            for (int i = 0; i < MinFPoints.size(); i++)
+            {
+                if (minH == square[MinFPoints[i].x][MinFPoints[i].y].getH())
+                {
+                    NextPoint = { MinFPoints[i].x ,MinFPoints[i].y };
+                    break;
+                }
+            }
+           
+            square[move.x][move.y].setOpen(2);
+            move.x = NextPoint.x;
+            move.y = NextPoint.y;
+            for (int i = 0; i < OpenPoints.size(); i++)
+            {
+                if (move.x == OpenPoints[i].x && move.y == OpenPoints[i].y)
+                {
+                    OpenPoints.erase(OpenPoints.begin() + i);
+                    break;
+                }
+            }
+            currentG = square[move.x][move.y].getG();
         }
+        POINT returnToStart = move;
         InvalidateRect(hWnd, NULL, TRUE);
+        vector<POINT> returnRoute;
+        returnRoute.push_back(EndPoint);
+        while (!(returnToStart.x == player.x && returnToStart.y == player.y))
+        {
+            POINT temp = returnToStart;
+            returnToStart.x = square[temp.x][temp.y].getBeforeX();
+            returnToStart.y = square[temp.x][temp.y].getBeforeY();
+            returnRoute.push_back(temp);
+        }
+        for (int i = returnRoute.size() - 1; i >= 0; i--)
+        {
+            InvalidateRect(hWnd, NULL, TRUE);
+            UpdateWindow(hWnd);
+            clock_t oldtime = clock();
+            clock_t newtime = clock();
+            player.x = returnRoute[i].x;
+            player.y = returnRoute[i].y;
+            while (newtime - oldtime < 1000)
+            {
+                newtime = clock();
+            }
+        }
     }
         break;
     default:
